@@ -20,6 +20,16 @@ const cancel = asyncHandler(async (req, res) => {
   if (!order) return res.status(404).json({ success: false, error: { message: 'Order not found' } });
   res.json({ success: true, data: { order: await orderService.cancelOrder(order, req.user.id) } });
 });
+const markPaid = asyncHandler(async (req, res) => {
+  const order = await Order.findOneAndUpdate({ _id: req.params.id, paymentMethod: 'bank_transfer', paymentStatus: 'unpaid' }, { $set: { paymentStatus: 'paid' } }, { new: true });
+  if (!order) return res.status(409).json({ success: false, error: { code: 'PAYMENT_NOT_UPDATABLE', message: 'Order is not an unpaid bank transfer' } });
+  res.json({ success: true, data: { order } });
+});
+const markRefunded = asyncHandler(async (req, res) => {
+  const order = await Order.findOneAndUpdate({ _id: req.params.id, paymentMethod: 'bank_transfer', paymentStatus: 'paid' }, { $set: { paymentStatus: 'refunded' } }, { new: true });
+  if (!order) return res.status(409).json({ success: false, error: { code: 'REFUND_NOT_UPDATABLE', message: 'Order is not a paid bank transfer' } });
+  res.json({ success: true, data: { order } });
+});
 const createReview = asyncHandler(async (req, res) => {
   const order = await Order.findOne({ _id: req.body.orderId, user: req.user.id, status: 'completed', 'items.product': req.params.productId });
   if (!order) return res.status(403).json({ success: false, error: { message: 'Only buyers with a completed order can review this product' } });
@@ -27,4 +37,4 @@ const createReview = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: { review } });
 });
 
-module.exports = { create, mine, detail, cancel, createReview };
+module.exports = { create, mine, detail, cancel, markPaid, markRefunded, createReview };

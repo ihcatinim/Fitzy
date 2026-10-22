@@ -15,7 +15,7 @@ The project uses JavaScript throughout; there are no TypeScript sources.
 
 ## Assumptions and demo rules
 
-- COD is the enabled checkout method. The API keeps a payment method/status structure for later online payment integration; no payment gateway credentials or callback flow are included.
+- Checkout supports COD and manual bank transfer. Bank transfer is enabled by setting `BANK_TRANSFER_BANK_NAME`, `BANK_TRANSFER_ACCOUNT_NAME`, and `BANK_TRANSFER_ACCOUNT_NUMBER` in `FITZY-API/.env`; an admin verifies transfers and confirms receipt in the order detail. Card and e-wallet gateways are not configured.
 - Shipping costs 30,000 VND below a 500,000 VND post-discount subtotal and is free at or above that amount.
 - Dashboard revenue counts orders marked `completed`. Cancelled, pending, confirmed, and shipping orders are not recognized as revenue. Completed COD orders are marked paid when the administrator completes them.
 - Stock is reserved when a customer places an order and restored if a pending/confirmed order is cancelled. Order transitions and promotion usage updates use MongoDB transactions.

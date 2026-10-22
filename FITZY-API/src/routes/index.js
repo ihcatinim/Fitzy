@@ -14,7 +14,7 @@ const resources = require('../controllers/resourceController');
 const stylistService = require('../integrations/gemini/stylistService');
 const Promotion = require('../models/Promotion');
 const Product = require('../models/Product');
-const { calculateDiscount } = require('../services/orderService');
+const { calculateDiscount, getBankTransferDetails } = require('../services/orderService');
 const { orderRules } = require('../validators/orderValidators');
 const stylistRules = require('../validators/stylistValidators');
 
@@ -25,6 +25,12 @@ const firebaseExchangeLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, s
 const aiLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
 
 router.get('/health', (req, res) => res.json({ success: true, data: { service: 'fitzy-api', status: 'ok' } }));
+router.get('/payments/methods', (req, res) => {
+  const methods = [{ id: 'cod', name: 'Thanh toán khi nhận hàng (COD)', description: 'Thanh toán tiền mặt khi nhận được đơn hàng.' }];
+  const bankTransfer = getBankTransferDetails();
+  if (bankTransfer) methods.push({ id: 'bank_transfer', name: 'Chuyển khoản ngân hàng', description: 'Chuyển khoản theo thông tin bên dưới; cửa hàng sẽ xác nhận thủ công.', bankAccount: bankTransfer });
+  res.json({ success: true, data: { methods } });
+});
 router.post('/auth/register', authController.registerRules, validate, authController.register);
 router.post('/auth/login', loginLimit, authController.loginRules, validate, authController.login);
 router.post('/auth/firebase/exchange', firebaseExchangeLimit, [body('idToken').isString().isLength({ min: 1, max: 8192 }), body('name').optional().isString().isLength({ max: 80 })], validate, authController.exchangeFirebase);
@@ -38,6 +44,8 @@ router.get('/posts', resources.publicPosts);
 router.get('/posts/:slug', resources.publicPostDetail);
 
 router.post('/orders', auth.requireAuth, orderRules, validate, orderController.create);
+router.patch('/orders/:id/payment/confirm', admin, [param('id').isMongoId()], validate, orderController.markPaid);
+router.patch('/orders/:id/payment/refund', admin, [param('id').isMongoId()], validate, orderController.markRefunded);
 router.get('/orders', auth.requireAuth, orderController.mine);
 router.get('/orders/admin/list', admin, resources.adminOrders);
 router.get('/orders/:id', auth.requireAuth, orderController.detail);

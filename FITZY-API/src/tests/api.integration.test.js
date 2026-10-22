@@ -7,6 +7,9 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
 process.env.JWT_SECRET = 'integration-test-secret-that-is-long-enough';
 process.env.CLIENT_ORIGINS = 'http://localhost:5173';
 process.env.GEMINI_API_KEY = '';
+process.env.BANK_TRANSFER_BANK_NAME = 'Test Bank';
+process.env.BANK_TRANSFER_ACCOUNT_NAME = 'FITZY TEST';
+process.env.BANK_TRANSFER_ACCOUNT_NUMBER = '1234567890';
 let replicaSet; let app; let customerToken; let product; let variant; let adminUser; let placedOrder;
 const { syncFirebaseUser } = require('../services/authService');
 
@@ -122,6 +125,33 @@ test('order ownership is enforced and cancellation restores stock', async () => 
   assert.equal(cancelled.body.data.order.status, 'cancelled');
   const refreshed = await mongoose.model('Product').findById(product.id);
   assert.equal(refreshed.variants.id(variant.id).quantity, 4);
+});
+
+test('bank transfer is listed when configured and can be confirmed by an admin', async () => {
+  const methods = await request(app).get('/api/payments/methods');
+  assert.equal(methods.status, 200);
+  assert.deepEqual(methods.body.data.methods.map(method => method.id), ['cod', 'bank_transfer']);
+  assert.equal(methods.body.data.methods[1].bankAccount.accountNumber, '1234567890');
+  const placed = await request(app).post('/api/orders').set('Authorization', `Bearer ${customerToken}`).send({
+    items: [{ productId: product.id, variantId: variant.id, quantity: 1 }], paymentMethod: 'bank_transfer',
+    shipping: { recipient: 'Test Buyer', phone: '0912345678', line1: '12 Test Street', district: 'District 1', city: 'Ho Chi Minh City' }
+  });
+  assert.equal(placed.status, 201);
+  assert.equal(placed.body.data.order.paymentMethod, 'bank_transfer');
+  assert.equal(placed.body.data.order.paymentStatus, 'unpaid');
+  const adminToken = require('jsonwebtoken').sign({ sub: adminUser.id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  assert.equal((await request(app).patch(`/api/orders/${placed.body.data.order._id}/payment/confirm`).set('Authorization', `Bearer ${customerToken}`)).status, 403);
+  const confirmed = await request(app).patch(`/api/orders/${placed.body.data.order._id}/payment/confirm`).set('Authorization', `Bearer ${adminToken}`);
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.body.data.order.paymentStatus, 'paid');
+  assert.equal((await request(app).patch(`/api/orders/${placed.body.data.order._id}/payment/confirm`).set('Authorization', `Bearer ${adminToken}`)).status, 409);
+  assert.equal((await request(app).post(`/api/orders/${placed.body.data.order._id}/cancel`).set('Authorization', `Bearer ${customerToken}`)).status, 409);
+  const refunded = await request(app).patch(`/api/orders/${placed.body.data.order._id}/payment/refund`).set('Authorization', `Bearer ${adminToken}`);
+  assert.equal(refunded.status, 200);
+  assert.equal(refunded.body.data.order.paymentStatus, 'refunded');
+  const cancelled = await request(app).post(`/api/orders/${placed.body.data.order._id}/cancel`).set('Authorization', `Bearer ${customerToken}`);
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.data.order.status, 'cancelled');
 });
 
 test('only valid order transitions complete sales and permit verified reviews', async () => {

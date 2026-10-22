@@ -21,7 +21,9 @@ async function createOrder(userId, input) {
     if (typeof shipping[key] !== 'string' || !shipping[key].trim()) throw new AppError(`Shipping ${key} is required`, 400, 'SHIPPING_REQUIRED');
   }
   if (!/^\+?[0-9\s()-]{8,20}$/.test(shipping.phone)) throw new AppError('Please enter a valid phone number', 400, 'INVALID_PHONE');
-  if (!['cod', 'online'].includes(input.paymentMethod || 'cod')) throw new AppError('Unsupported payment method', 400, 'INVALID_PAYMENT_METHOD');
+  const paymentMethod = input.paymentMethod || 'cod';
+  if (!['cod', 'bank_transfer'].includes(paymentMethod)) throw new AppError('Unsupported payment method', 400, 'INVALID_PAYMENT_METHOD');
+  if (paymentMethod === 'bank_transfer' && !getBankTransferDetails()) throw new AppError('Bank transfer is not configured', 503, 'PAYMENT_METHOD_UNAVAILABLE');
   const session = await mongoose.startSession();
   let created;
   try {
@@ -56,11 +58,19 @@ async function createOrder(userId, input) {
       const total = subtotal - discount + shippingFee;
       [created] = await Order.create([{
         orderNumber: `FZ${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 900 + 100)}`,
-        user: userId, items: orderItems, shipping: input.shipping, paymentMethod: input.paymentMethod || 'cod', paymentStatus: 'unpaid', subtotal, discount, shippingFee, total, promotionCode: code || '', status: 'pending'
+        user: userId, items: orderItems, shipping: input.shipping, paymentMethod, paymentStatus: 'unpaid', subtotal, discount, shippingFee, total, promotionCode: code || '', status: 'pending'
       }], { session });
     }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
     return created;
   } finally { await session.endSession(); }
+}
+
+function getBankTransferDetails() {
+  const bankName = process.env.BANK_TRANSFER_BANK_NAME?.trim();
+  const accountName = process.env.BANK_TRANSFER_ACCOUNT_NAME?.trim();
+  const accountNumber = process.env.BANK_TRANSFER_ACCOUNT_NUMBER?.trim();
+  if (!bankName || !accountName || !accountNumber) return null;
+  return { bankName, accountName, accountNumber, branch: process.env.BANK_TRANSFER_BRANCH?.trim() || '' };
 }
 
 const nextStatuses = { pending: ['confirmed', 'cancelled'], confirmed: ['shipping', 'cancelled'], shipping: ['completed'], completed: [], cancelled: [] };
@@ -68,6 +78,7 @@ const nextStatuses = { pending: ['confirmed', 'cancelled'], confirmed: ['shippin
 async function cancelOrder(order, userId) {
   if (userId !== 'admin' && order.user.toString() !== userId.toString()) throw new AppError('Order not found', 404, 'ORDER_NOT_FOUND');
   if (!['pending', 'confirmed'].includes(order.status)) throw new AppError('This order can no longer be cancelled', 409, 'CANCEL_NOT_ALLOWED');
+  if (order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'paid') throw new AppError('Refund the bank transfer before cancelling this order', 409, 'REFUND_REQUIRED');
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -101,4 +112,4 @@ async function changeOrderStatus(order, status) {
   return updated;
 }
 
-module.exports = { createOrder, cancelOrder, changeOrderStatus, calculateDiscount, nextStatuses, SHIPPING_FEE, SHIPPING_THRESHOLD };
+module.exports = { createOrder, cancelOrder, changeOrderStatus, calculateDiscount, nextStatuses, getBankTransferDetails, SHIPPING_FEE, SHIPPING_THRESHOLD };

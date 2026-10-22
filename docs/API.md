@@ -9,6 +9,7 @@ Public registration always creates `customer`. The API never exposes a public ad
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
 | GET | `/health` | Public | API health |
+| GET | `/payments/methods` | Public | List active payment methods and configured bank transfer details |
 | POST | `/auth/register` | Public, rate-limited by input | Create customer |
 | POST | `/auth/login` | Public, rate-limited | Login |
 | POST | `/auth/firebase/exchange` | Public, rate-limited | Verify Firebase ID token, create/link MongoDB profile, return FITZY API JWT |
@@ -28,6 +29,8 @@ Public registration always creates `customer`. The API never exposes a public ad
 | POST | `/ai/stylist` | Customer, rate-limited | Gemini advice and database-matched products |
 | GET/PATCH | `/users`, `/users/:id`, `/users/:id/block` | Admin | Customer list, detail, block/unblock |
 | GET/PATCH | `/orders/admin/list`, `/orders/:id/status` | Admin | Filter orders / update valid status |
+| PATCH | `/orders/:id/payment/confirm` | Admin | Confirm a received bank transfer |
+| PATCH | `/orders/:id/payment/refund` | Admin | Record a manually completed bank transfer refund |
 | GET/PATCH | `/reviews/admin/list`, `/reviews/:id/moderate` | Admin | Review moderation |
 | GET | `/stats?range=day\|month\|year` | Admin | Revenue and store summary |
 | GET/POST/PATCH/DELETE | `/admin/categories` | Admin | Category CRUD (deletion blocked while referenced) |
@@ -58,7 +61,7 @@ The client sends product and variant IDs plus quantity. It does not send prices,
 }
 ```
 
-Valid status flow: `pending → confirmed → shipping → completed`; `pending` and `confirmed` can transition to `cancelled`. A cancellation restores inventory and frees one promotion use in the same transaction. COD is marked paid at completion. Revenue reports include only completed orders.
+Valid status flow: `pending → confirmed → shipping → completed`; `pending` and `confirmed` can transition to `cancelled`. A cancellation restores inventory and frees one promotion use in the same transaction. A paid bank-transfer order must be refunded by an admin before cancellation. Checkout supports COD and manual bank transfer. Bank transfer appears only when `BANK_TRANSFER_BANK_NAME`, `BANK_TRANSFER_ACCOUNT_NAME`, and `BANK_TRANSFER_ACCOUNT_NUMBER` are configured on the API. The buyer transfers the order total using the order number as the transfer description; an admin verifies the bank statement and confirms receipt through `PATCH /orders/:id/payment/confirm`. COD is marked paid at completion. Revenue reports include only completed orders. Cards and e-wallets require a payment gateway integration and are not enabled.
 
 ## Validation and error cases
 
