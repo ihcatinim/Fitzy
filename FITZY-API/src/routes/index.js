@@ -15,6 +15,7 @@ const stylistService = require('../integrations/gemini/stylistService');
 const Promotion = require('../models/Promotion');
 const Product = require('../models/Product');
 const { calculateDiscount, getBankTransferDetails } = require('../services/orderService');
+const paymentGatewayService = require('../services/paymentGatewayService');
 const { orderRules } = require('../validators/orderValidators');
 const stylistRules = require('../validators/stylistValidators');
 
@@ -29,8 +30,13 @@ router.get('/payments/methods', (req, res) => {
   const methods = [{ id: 'cod', name: 'Thanh toán khi nhận hàng (COD)', description: 'Thanh toán tiền mặt khi nhận được đơn hàng.' }];
   const bankTransfer = getBankTransferDetails();
   if (bankTransfer) methods.push({ id: 'bank_transfer', name: 'Chuyển khoản ngân hàng', description: 'Chuyển khoản theo thông tin bên dưới; cửa hàng sẽ xác nhận thủ công.', bankAccount: bankTransfer });
+  methods.push(...paymentGatewayService.enabledProviders());
   res.json({ success: true, data: { methods } });
 });
+router.post('/payments/ipn/momo', orderController.momoIpn);
+router.post('/payments/ipn/zalopay', orderController.zaloPayIpn);
+router.get('/payments/ipn/vnpay', orderController.vnPayIpn);
+router.get('/payments/return/vnpay', orderController.vnPayReturn);
 router.post('/auth/register', authController.registerRules, validate, authController.register);
 router.post('/auth/login', loginLimit, authController.loginRules, validate, authController.login);
 router.post('/auth/firebase/exchange', firebaseExchangeLimit, [body('idToken').isString().isLength({ min: 1, max: 8192 }), body('name').optional().isString().isLength({ max: 80 })], validate, authController.exchangeFirebase);
@@ -48,8 +54,8 @@ router.patch('/orders/:id/payment/confirm', admin, [param('id').isMongoId()], va
 router.patch('/orders/:id/payment/refund', admin, [param('id').isMongoId()], validate, orderController.markRefunded);
 router.get('/orders', auth.requireAuth, orderController.mine);
 router.get('/orders/admin/list', admin, resources.adminOrders);
-router.get('/orders/:id', auth.requireAuth, orderController.detail);
-router.post('/orders/:id/cancel', auth.requireAuth, orderController.cancel);
+router.get('/orders/:id', auth.requireAuth, [param('id').isMongoId()], validate, orderController.detail);
+router.post('/orders/:id/cancel', auth.requireAuth, [param('id').isMongoId()], validate, orderController.cancel);
 router.post('/products/:productId/reviews', auth.requireAuth, [body('rating').isInt({ min: 1, max: 5 }), body('orderId').isMongoId(), body('comment').optional().isString().isLength({ max: 1200 })], validate, resources.createReview);
 router.patch('/reviews/:id', auth.requireAuth, resources.ownReviewUpdate);
 router.delete('/reviews/:id', auth.requireAuth, resources.ownReviewDelete);
@@ -75,10 +81,11 @@ router.post('/ai/stylist', auth.requireAuth, aiLimit, stylistRules, validate, as
 router.get('/users', admin, resources.customers);
 router.get('/users/:id', admin, resources.customerDetail);
 router.patch('/users/:id/block', admin, [body('isBlocked').isBoolean()], validate, resources.blockCustomer);
-router.patch('/orders/:id/status', admin, [body('status').isIn(['pending', 'confirmed', 'shipping', 'completed', 'cancelled'])], validate, resources.changeAdminOrderStatus);
+router.patch('/orders/:id/status', admin, [param('id').isMongoId(), body('status').isIn(['pending', 'confirmed', 'preparing', 'shipping', 'completed', 'cancelled', 'delivery_failed']), body('note').optional().isString().trim().isLength({ max: 500 })], validate, resources.changeAdminOrderStatus);
 router.get('/reviews/admin/list', admin, resources.adminReviews);
 router.patch('/reviews/:id/moderate', admin, [body('status').isIn(['visible', 'hidden'])], validate, resources.moderateReview);
 router.get('/stats', admin, resources.stats);
+router.get('/admin/products/:id/activity', admin, [param('id').isMongoId()], validate, resources.productActivity);
 
 for (const kind of ['categories', 'products', 'posts', 'promotions']) {
   router.get(`/admin/${kind}`, admin, resources.adminList(kind));

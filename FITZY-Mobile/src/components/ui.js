@@ -2,9 +2,9 @@ import React from 'react';
 import { ActivityIndicator, Image, Pressable, Text, TextInput, View } from 'react-native';
 import { theme } from '../constants/theme';
 
-export function Page({ children, scroll = true, style, contentStyle }) {
+export function Page({ children, scroll = true, style, contentStyle, refreshControl }) {
   const Container = scroll ? require('react-native').ScrollView : View;
-  return <Container keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic" style={[{ flex: 1, backgroundColor: theme.colors.paper }, style]} contentContainerStyle={scroll ? [{ padding: 20, gap: 18 }, contentStyle] : undefined}>{children}</Container>;
+  return <Container keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic" refreshControl={scroll ? refreshControl : undefined} style={[{ flex: 1, backgroundColor: theme.colors.paper }, style]} contentContainerStyle={scroll ? [{ padding: 20, gap: 18 }, contentStyle] : undefined}>{children}</Container>;
 }
 export function Label({ children, style, muted = false, ...props }) { return <Text selectable style={[{ color: muted ? theme.colors.muted : theme.colors.ink, fontSize: 14 }, style]} {...props}>{children}</Text>; }
 export function Button({ title, onPress, disabled, variant = 'dark', loading, style }) {

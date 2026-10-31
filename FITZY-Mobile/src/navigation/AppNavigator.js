@@ -10,6 +10,7 @@ import ProductScreen from '../screens/products/ProductScreen';
 import CartScreen from '../screens/cart/CartScreen';
 import CheckoutScreen from '../screens/checkout/CheckoutScreen';
 import OrdersScreen from '../screens/orders/OrdersScreen';
+import OrderDetailScreen from '../screens/orders/OrderDetailScreen';
 import FavoritesScreen from '../screens/favorites/FavoritesScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import AuthScreen from '../screens/auth/AuthScreen';
@@ -43,6 +44,7 @@ export default function AppNavigator() {
     <Stack.Screen name="Product" component={ProductScreen} options={{ title: 'Chi tiết sản phẩm' }} />
     <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Thanh toán' }} />
     <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Đơn hàng của tôi' }} />
+    <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Chi tiết đơn hàng' }} />
     <Stack.Screen name="Auth" component={AuthScreen} options={{ title: 'Tài khoản FITZY', presentation: 'modal' }} />
     <Stack.Screen name="Stylist" component={StylistScreen} options={{ title: 'FITZY Stylist' }} />
     <Stack.Screen name="Review" component={ReviewScreen} options={{ title: 'Viết đánh giá' }} />

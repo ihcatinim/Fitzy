@@ -10,7 +10,7 @@ const orderRules = [
   body('shipping.ward').optional().isString().trim().isLength({ max: 100 }),
   body('shipping.district').isString().trim().isLength({ min: 1, max: 100 }),
   body('shipping.city').isString().trim().isLength({ min: 1, max: 100 }),
-  body('paymentMethod').optional().isIn(['cod', 'bank_transfer']),
+  body('paymentMethod').optional().isIn(['cod', 'bank_transfer', 'momo', 'zalopay', 'vnpay']),
   body('promotionCode').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 })
 ];
 module.exports = { orderRules };

@@ -15,10 +15,10 @@ The project uses JavaScript throughout; there are no TypeScript sources.
 
 ## Assumptions and demo rules
 
-- Checkout supports COD and manual bank transfer. Bank transfer is enabled by setting `BANK_TRANSFER_BANK_NAME`, `BANK_TRANSFER_ACCOUNT_NAME`, and `BANK_TRANSFER_ACCOUNT_NUMBER` in `FITZY-API/.env`; an admin verifies transfers and confirms receipt in the order detail. Card and e-wallet gateways are not configured.
+- Checkout supports COD and manual bank transfer. MoMo, ZaloPay, and VNPay options appear when their API-side merchant keys and callback URLs are configured. Provider payments use signed server requests/callbacks; online transactions must be refunded through the provider before an admin records the refund and permits cancellation.
 - Shipping costs 30,000 VND below a 500,000 VND post-discount subtotal and is free at or above that amount.
-- Dashboard revenue counts orders marked `completed`. Cancelled, pending, confirmed, and shipping orders are not recognized as revenue. Completed COD orders are marked paid when the administrator completes them.
-- Stock is reserved when a customer places an order and restored if a pending/confirmed order is cancelled. Order transitions and promotion usage updates use MongoDB transactions.
+- Dashboard revenue counts orders marked `completed`. Cancelled, pending, confirmed, preparing, shipping, delivery-failed orders are not recognized as revenue. Completed COD orders are marked paid when the administrator completes them.
+- Stock is reserved when a customer places an order and restored if a pending/confirmed/preparing order is cancelled. Order transitions and promotion usage updates use MongoDB transactions. New orders record each status change and its timestamp; legacy orders do not have historical status timestamps.
 - Therefore MongoDB must run as a replica set, including for a local demo. A one-node replica set is sufficient.
 - Seed admin credentials come from environment variables. The seed script refuses to run without a password of at least 12 characters. Public registration only creates customer accounts.
 - Demo product and banner photos reference Unsplash image URLs. Replace them with store-owned or properly licensed images before presenting FITZY as a real shop.
@@ -82,6 +82,8 @@ npm run seed
 
 The default admin email is `admin@fitzy.local`; the password is exactly the value of `SEED_ADMIN_PASSWORD`. Seed is safe to rerun for its sample records.
 
+For checkout payments, set the provider variables in `FITZY-API/.env` using sandbox credentials first. Bank transfer requires `BANK_TRANSFER_BANK_NAME`, `BANK_TRANSFER_ACCOUNT_NAME`, and `BANK_TRANSFER_ACCOUNT_NUMBER`. MoMo and ZaloPay require their merchant keys plus public HTTPS IPN callback URLs. VNPay requires `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, a return URL, and its IPN URL registered in the VNPay merchant portal. Keep all provider secrets on the API server; never add them to Expo public variables. Production credentials should only replace sandbox credentials after provider onboarding and successful end-to-end verification.
+
 ## Run the mobile app
 
 Create `FITZY-Mobile/.env` from `FITZY-Mobile/.env.example`, then set `EXPO_PUBLIC_API_URL` to the API URL reachable from the device. Expo inlines this public URL at build time; never put API keys or JWT secrets in `EXPO_PUBLIC_*` variables.
@@ -98,7 +100,7 @@ Common API URLs:
 - Android emulator: `http://10.0.2.2:4000/api`
 - Physical device: `http://<your-computer-LAN-IP>:4000/api` (phone and computer must share a network; allow the port through the local firewall)
 
-The JWT is stored in Expo SecureStore. AsyncStorage persists the shopping cart. Mobile and Admin currently enable COD only.
+The JWT is stored in Expo SecureStore. AsyncStorage persists the shopping cart. Mobile checkout shows COD, manual bank transfer, and any configured online gateways. Admin can confirm received transfers and record completed refunds.
 
 ## Run the Admin site
 
@@ -144,4 +146,4 @@ For Postman, import the routes and example payloads in `docs/API.md`, set `baseU
 
 ## Current limitations
 
-No external payment gateway, shipping provider, password-reset email service, cloud image storage, or production deployment setup is configured. Admin CRUD is backed by the API; category deletion is rejected when products reference it, used promotions are deactivated, and product deletion hides the product to preserve order history. The API runtime dependency audit is clean. The full Expo build-tool dependency tree has 22 moderate/high npm audit findings; npm's suggested broad fix downgrades Expo to 44.0.6, so it was not applied to this SDK 57 project. See [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) for verification details.
+No live merchant credentials, shipping provider, password-reset email service, cloud image storage, or production deployment setup is configured. Payment gateway integration code is present but remains hidden until API-side credentials and callback URLs are set. Admin CRUD is backed by the API; category deletion is rejected when products reference it, used promotions are deactivated, and product deletion hides the product to preserve order history. The API runtime dependency audit is clean. The full Expo build-tool dependency tree has 22 moderate/high npm audit findings; npm's suggested broad fix downgrades Expo to 44.0.6, so it was not applied to this SDK 57 project. See [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) for verification details.

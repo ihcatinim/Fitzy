@@ -13,8 +13,12 @@ test('fixed promotions cannot exceed subtotal', () => {
 
 test('order transition policy prevents customer or admin workflow skips', () => {
   assert.deepEqual(nextStatuses.pending, ['confirmed', 'cancelled']);
-  assert.deepEqual(nextStatuses.shipping, ['completed']);
+  assert.deepEqual(nextStatuses.confirmed, ['preparing', 'cancelled']);
+  assert.deepEqual(nextStatuses.preparing, ['shipping', 'cancelled']);
+  assert.deepEqual(nextStatuses.shipping, ['completed', 'delivery_failed']);
+  assert.deepEqual(nextStatuses.delivery_failed, ['shipping']);
   assert.deepEqual(nextStatuses.completed, []);
+  assert.deepEqual(nextStatuses.cancelled, []);
 });
 
 test('shipping threshold is explicit and consistent', () => {

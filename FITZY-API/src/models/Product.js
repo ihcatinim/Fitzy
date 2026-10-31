@@ -4,7 +4,7 @@ const variantSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 0, default: 0 }, images: { type: [String], default: [] }, isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 const productSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true }, slug: { type: String, required: true, unique: true }, description: { type: String, default: '' },
+  name: { type: String, required: true, trim: true, maxlength: 160 }, slug: { type: String, required: true, unique: true }, description: { type: String, default: '' },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true, index: true }, images: { type: [String], default: [] }, price: { type: Number, required: true, min: 0 }, compareAtPrice: { type: Number, min: 0 },
   variants: { type: [variantSchema], validate: v => v.length > 0 }, status: { type: String, enum: ['active', 'hidden'], default: 'active', index: true }, featured: { type: Boolean, default: false },
   tags: { type: [String], default: [] }, salesCount: { type: Number, default: 0, min: 0 }
