@@ -242,21 +242,79 @@ const moderateReview = asyncHandler(async (req, res) => {
 });
 
 const customers = asyncHandler(async (req, res) => {
-  const page = Math.max(1, Number(req.query.page) || 1); const limit = Math.min(100, Number(req.query.limit) || 20); const filter = { role: 'customer' };
-  if (req.query.q) { const q = String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); filter.$or = [{ name: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }]; }
-  const [items, total] = await Promise.all([User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), User.countDocuments(filter)]);
-  res.json({ success: true, data: pageResult(items, total, page, limit) });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Number(req.query.limit) || 20);
+    const filter = { role: 'customer' };
+
+    if (req.query.q) {
+        const q = String(req.query.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.$or = [
+            { name: { $regex: q, $options: 'i' } },
+            { email: { $regex: q, $options: 'i' } },
+            { phone: { $regex: q, $options: 'i' } }
+        ];
+    }
+
+    if (req.query.status === 'active') {
+        filter.isBlocked = false;
+    } else if (req.query.status === 'blocked') {
+        filter.isBlocked = true;
+    }
+
+    if (req.query.from || req.query.to) {
+        filter.createdAt = {};
+        if (req.query.from) {
+            filter.createdAt.$gte = new Date(`${req.query.from}T00:00:00.000Z`);
+        }
+        if (req.query.to) {
+            filter.createdAt.$lte = new Date(`${req.query.to}T23:59:59.999Z`);
+        }
+    }
+    const [items, total, activeCount, blockedCount] = await Promise.all([
+        User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+        User.countDocuments(filter),
+        User.countDocuments({ role: 'customer', isBlocked: false }),
+        User.countDocuments({ role: 'customer', isBlocked: true })
+    ]);
+    res.json({
+        success: true,
+        data: {
+            ...pageResult(items, total, page, limit),
+            summary: {
+                total: activeCount + blockedCount,
+                active: activeCount,
+                blocked: blockedCount
+            }
+        }
+    });
 });
+
 const customerDetail = asyncHandler(async (req, res) => {
   const user = await User.findOne({ _id: req.params.id, role: 'customer' }).select('-passwordHash');
   if (!user) throw new AppError('Customer not found', 404, 'NOT_FOUND');
-  const [orderCount, spent] = await Promise.all([Order.countDocuments({ user: user._id }), Order.aggregate([{ $match: { user: user._id, status: { $ne: 'cancelled' } } }, { $group: { _id: null, total: { $sum: '$total' } } }])]);
-  res.json({ success: true, data: { user, orderCount, spent: spent[0]?.total || 0 } });
+    const [orderCount, spent, recentOrders] = await Promise.all([
+        Order.countDocuments({ user: user._id }),
+        Order.aggregate([{ $match: { user: user._id, status: { $ne: 'cancelled' } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+        Order.find({ user: user._id }).lean().sort({ createdAt: -1 }).limit(3).select('orderNumber total status createdAt')
+    ]);
+    res.json({ success: true, data: { user, orderCount, spent: spent[0]?.total || 0, recentOrders } });
 });
 const blockCustomer = asyncHandler(async (req, res) => {
-  const user = await User.findOneAndUpdate({ _id: req.params.id, role: 'customer' }, { $set: { isBlocked: Boolean(req.body.isBlocked) } }, { new: true }).select('-passwordHash');
-  if (!user) throw new AppError('Customer not found', 404, 'NOT_FOUND');
-  res.json({ success: true, data: { user } });
+    const isBlocked = Boolean(req.body.isBlocked);
+    const update = { isBlocked };
+
+    if (isBlocked) {
+        update.blockReason = req.body.blockReason ? String(req.body.blockReason).trim() : 'Vi phạm chính sách';
+    } else {
+        update.blockReason = '';
+    }
+    const user = await User.findOneAndUpdate(
+        { _id: req.params.id, role: 'customer' },
+        { $set: update },
+        { new: true }
+    ).select('-passwordHash');
+    if (!user) throw new AppError('Customer not found', 404, 'NOT_FOUND');
+    res.json({ success: true, data: { user } });
 });
 
 const adminOrders = asyncHandler(async (req, res) => {
