@@ -13,18 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { fetchProduct } from '../../store/slices/productSlice';
 import { addItem } from '../../store/slices/cartSlice';
 import { addFavorite, fetchFavorites, removeFavorite } from '../../store/slices/favoriteSlice';
 import { StateMessage } from '../../components/ui';
 import { theme, formatVnd } from '../../constants/theme';
-
-const ICONS = {
-  bag: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAJ+SURBVHhe7ZohTB1BEIaRlZVIZGUlEllZiaxEIpE4JBJZWYlEIiuRlcgnK3H/kEkuzfZjXl6u3MzeNfslT5D8dztzb29m/uUdHQ0Gg8FgMBgMajCzE0mXkh7bj5ldm9kn6v8rJN3aASTdm9lHXrtpzOxY0k8muw9Jz5JOeZ9NMm35HZM8hKQXM/vK+22OaUszuZ3XATM784+kC0lPkc7MPvCem8G/wSApL3hv3nFPNKoRkm6o3QRTQn9tfa8D1BE+hOlV2F53kPQlSOQzdSR6cGZ2Rd3q8aDbDCR9p2YfU31or/1BzerxoJHEJTX78BaIa5+oWT2s6nP6uhfJ9lqHmq54UWKAK6B2ZuDqK+BggV0UH1cZQWfezBapTAPNKpD0m/GlI+kOQVxQk0XQJQ4OWIsT9PmykVXSOdaunxOCIO6pyWI6PGnXLnv4fwi2Ydmw4lNlu7aZfaMmHT/kaCOoLERBAT6jpgRPGoGUtKLALJ1QU8J7xt1/xd0i1nyhpgye9nhhpGZpOIZL+kVNGTy8qPDtwTnDAzVl+PCDYO6oWZrgrCB9zb0E38YjNUvDXTfnnGFxgvfxmZqlYd0pt8EtrMgONUvDzlNug0nQk1NPcKfD1Za+/zfgVOZ1gZqlCKbPHTXlcC7PtMWB/6i3waTSmQUOtN4GkyCoNFvMh+1/U1NOsC3TbDFfty42mASFKc0Ws+B2s8EkaE0ptjhoucfUdMEdWRtVhi3m0NXVBhOOpxm2OBi7+9lgQoOSYYsD45XWbWZTYVGDNW6p6QZ/CpNhi7nLutpgwveziH42mLBCF5HqOmcT9Ohs+tpgMueXoO9lFTZ4MBgMBoPBYLBxXgEQ1+kIoeKhDgAAAABJRU5ErkJggg==',
-  heartOutline: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAALhSURBVHhe7ZktcBtBDIUDC0ts6UyusLCwMLCwsDDQsLCwzLCwMNDQsNDQMLAw0NAwMJmXWXvUV93/rzP6ZnY89mnv9nalp1355iYIgiAIgiAIgiAIOrNYLDTLsu8i8lNV96q6xfflcvmZbcsQkdt0n9+qusOniHxgu9mQZdlHVb0XkSdVfS5oe9hx3zN5nr9T1Y2qHp2+54bJuOW+k5JWmwfqtjRBG7ysvQc8RET+sn1J29n+k5Fl2VdncGiPWPESj3jI8/w97iEid871SyuaGBH5weMZleT2JxoYXvqbtUur+4dfIGnE2vkdIbC24YJ7QE8c2y/2WaOSXsAO5hfbWJK3lMU32vbsGR6OtxzZZhQQw+Tee7bxKPCac7tne4+UGS79VqvVJ7YZHCixHQRWhm2KwIAdbdiyXRHob/siXbLN4LDyN83RWG3T/1jm9h7kReNnBBKkxnEI8TKT1zivk6g+8vXBgeCZF3ji61WkTc8J8czX6qCqBzMBtfSnVxB3ZgDP2AKzTRUII94Q1YWySS3x7BXeAI2txPbZmEi+PjhTKnGXDNQb5xg2A3lgm6GgDILJLzxgDcoUGxKkS9pDHNhmNDgM2ip6E5yzw5ptRgWubwZzaqvqdbHpD54w9PMq4XQ45BGVM88k6Y9B/rc5GavSdFtchyS6qDFcJmAMzamFc0TtfW+eSmX2GaVH79Hh2gDclW3agjRHyo/D07SxzzhH3GOb7TGTXP+fyeWK02xw3BR1v04rxWUwnALZZjZ4QtVFD5wJxemxd4HtFQzQKXk1FiwW1hRe0xVAm4DDilPyqr1j69p/FvAKpla5ggVF0w3bXQUcw2mTVKjg6WzBL1+7WDpLWMXRvNoBvMNx+0PXLDI5KTP8NwlWGAvCZd+0UjxrbBHVNEwMp7rX369+5T2cs7zXGqfMqwJnBCfWX5unDW8SVvuq7PAmSTvGXfo7vfE/Q0EQBEEQBEEQBEHQnhdpx/hoVDRATgAAAABJRU5ErkJggg==',
-  heartFill: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAISSURBVHhe7ZmtU8NAEMWRSCQuFd0NU4VEIpGVSP4EJBKHRCKRyEpkJTKy0KQTiUQiYfYmYdq9a9M0zeVS3m/mudzl3eduNkdHAAAAAAAAAAAAAA35IDpfMD9nzD9GRHnK/JIyX+ln15GPRqdz5tuMaJIxJ9KP6SOOL/WzwfDOfJYxv/0N3CWi1zyOB7ptSR5FxxnRg9VutY/ZfDi80G07JY+iE1lpy6xDKfN3RnRj9RHHAxmcft6llPlr00R6R1ZWm6wU0XXZvhj8VhO4pER2zKqTDpBz6TBXKdkJ0tZs+6qjs06OneSdlOjeMra9kibt5bLVfrxT3NSWOU9KtB/v7HB29yrtxztlnO5CEg20H+/8+yOwIHp0GPMjoon24505851lzJNk8rUf70jero35UjAp8U6ZYFMRzbSPzpC01jLYsuToaR+dIemshCRtsk3J0dM+OsVrNAjh9teYXUD0aZnds+QjKrjVL0mZx9rwviWVIv3eoGg5IoRRA9iEFDdM1cc231jBxP0q2sgOF8xP+j1BI1VcPYgGmga/9TVFqWvqGEw9Ec2k6Kr77wV1qsUuBVf93YXiUqydJcpF2ptLrwqp/taODEtl84NAVnObnWDK5cxj3f4gML/PNtwJMkEHs+3XURRQ7EIqUS4TpJ8/SIrosJwyJ8F+4LSF5AnmN7r8Me5rnAcAAAAAAAAAAEAv+QUTCha4TQqpYAAAAABJRU5ErkJggg==',
-  checkCircle: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAO8SURBVHhe7Zo/aBRBFMZTWqa00yo7SRMbwcJCsLFMFzMrXpqAaBOs1CYpRFHMbmEwGBALhRNETwIaRCFqYYgpNIWeoBBBMRAL/2BITGJG3mRPLt/s3m52ZvYuMD/4INzO3fve7OzMm8m2tTkcDofD4XA4HFa5XOraHXDvROh7w4HPbgacTdUr9L0yXQt9Nhj2envx+zsSSoQS2kyQie0o8NnrwGdnrvR1MPzdlofuduizMUwqv7zyjhgVYam7PeTexZCzZTUJfQW8M6TOxbgtAQ3V0GdVNG1c3FsY8dkBjN9URo51HAk4+66YtSUaYdzrRx9NgYwoBguTN4x+CoXuvGqqWNHSir4KgZ75Qod9kuSE6x1Cf1ah2T7w2bxipkmSN6LIZZKWIzTRbAU+q6BPK8gix9I6ry3etQ/9GofqeCVwARo/eVDMPS2L9y8fitvnepTrUpxNol+jRMWOGtiybgweFj8Xv4gai5+qSpuaaGVC38aIdmtKUJvC5InfP74p7WqiEYq+jRFybxoD2tS1gf3ybiOvJsaVtv/FvQX0bYRoa6sGtKSk5N8+v6+0VWWhLpAHFUogO7ra3y3m515g7nICxLZxomUa/Wtjdn+frKTk6TO6hu1jZWM1oEJDCWRBdJeRz+9msicfnSahf22KmADp+UZoHqD5ANs2lI2JMK32p0KFEqA7eGeoV7meJprZkVzJR0L/2lCvYpB61Q/dtdUVUbk0oLRJ0vS90S2JE7T2Uw2AbbMK/WtDzxUGqdfXD2+2JJC1E57durDle4Ru8rQ7RP/a0MyKgepFySJpnfD4+ln8ilhZ+pVc62dXFf1rk2UTFJdQUidMBKewqankaQRMoX9t6J8UGChOWTqB/qbPsM3d88eV38upMfSvDR1FxwSKVaNOoCTjko8bJXk10seOon8jpC2F9YrrhPW1P2J1ZQk/Fo9GTyvfzy3OlodKe3ahdyNs9ygsrhMQaoPf05HVozHaZWHANDXqBFoCsb22bP/DJE9JHNcJMw/GlHYGVLU2/GvQwWNM4FTNToyLjb/rQmxsiI+zT5TrRtTX2YN+raCzM8xb26fJyg4wCXk42nJH4xZOgRpBw0010TQNor9CyFodWpb5qm87ZNkjWBNnk9Zn/SzI12LQnGVRx7dE8jWo/i5wYmzOM5+GrBFyFEpZtXkoU/Bsn4dohTD2wpTchNkucW1ApmXRlPfR4GySXoFpqWc9D5SAnCN8ryxfjY3bVnNvIbpWkS9elbrb8XccDofD4XA4HA5z/APdvJOsHXUn4AAAAABJRU5ErkJggg==',
-};
 
 function getInitials(name) {
   if (!name) return 'KH';
@@ -55,22 +49,18 @@ function formatRelativeTime(dateString) {
   return 'Vừa xong';
 }
 
-function renderStars(rating, max = 5, size = 12) {
+function renderStars(rating, max = 5, size = 13) {
   const num = Math.min(max, Math.max(0, Math.round(Number(rating) || 0)));
   const stars = [];
   for (let i = 1; i <= max; i++) {
     stars.push(
-      <Text
+      <Ionicons
         key={i}
-        style={{
-          fontSize: size,
-          color: i <= num ? '#b8944d' : '#dedad2',
-          marginRight: 2,
-          lineHeight: size + 2
-        }}
-      >
-        ★
-      </Text>
+        name={i <= num ? 'star' : 'star-outline'}
+        size={size}
+        color={i <= num ? '#b8944d' : '#dedad2'}
+        style={{ marginRight: 2 }}
+      />
     );
   }
   return <View style={styles.starsRow}>{stars}</View>;
@@ -199,7 +189,7 @@ export default function ProductScreen({ route, navigation }) {
             <View style={styles.ratingSummaryRow}>
               {reviewCount > 0 ? (
                 <>
-                  <Text style={styles.starIcon}>★</Text>
+                  <Ionicons name="star" size={13} color="#b8944d" style={{ marginRight: 3 }} />
                   <Text style={styles.ratingNumberText}>{avgRatingText}</Text>
                   <Text style={styles.ratingCountText}>({reviewCount} đánh giá)</Text>
                 </>
@@ -224,6 +214,7 @@ export default function ProductScreen({ route, navigation }) {
           <Text style={styles.descriptionText}>{product.description}</Text>
 
           <View style={styles.divider} />
+
 
           <View style={styles.variantHeaderRow}>
             <Text style={styles.sectionHeading}>CHỌN SIZE VÀ MÀU</Text>
@@ -276,7 +267,7 @@ export default function ProductScreen({ route, navigation }) {
               </View>
             </View>
             {reviewCount > 0 ? (
-              renderStars(Math.round(avgRatingNum), 5, 13)
+              renderStars(Math.round(avgRatingNum), 5, 14)
             ) : (
               <Text style={styles.noRatingText}>Chưa có xếp hạng</Text>
             )}
@@ -296,7 +287,7 @@ export default function ProductScreen({ route, navigation }) {
                       <Text style={styles.reviewerName}>
                         {review.user?.name || 'Khách hàng'}
                       </Text>
-                      {renderStars(review.rating, 5, 11)}
+                      {renderStars(review.rating, 5, 12)}
                     </View>
                     <Text style={styles.reviewTime}>
                       {formatRelativeTime(review.createdAt)}
@@ -310,10 +301,11 @@ export default function ProductScreen({ route, navigation }) {
                   {review.adminReply ? (
                     <View style={styles.adminReplyBox}>
                       <View style={styles.adminReplyHeader}>
-                        <Image
-                          source={{ uri: ICONS.checkCircle }}
-                          style={styles.checkCircleIcon}
-                          resizeMode="contain"
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={16}
+                          color="#8b5a2b"
+                          style={{ marginRight: 6 }}
                         />
                         <Text style={styles.adminReplyTitle}>
                           Phản hồi từ FITZY Store:
@@ -356,7 +348,12 @@ export default function ProductScreen({ route, navigation }) {
             pressed && { opacity: 0.9 }
           ]}
         >
-          <Image source={{ uri: ICONS.bag }} style={styles.btnIconWhite} resizeMode="contain" />
+          <Ionicons
+            name="bag-handle-outline"
+            size={18}
+            color="#ffffff"
+            style={{ marginRight: 8 }}
+          />
           <Text style={styles.primaryBtnText}>Thêm vào túi đồ</Text>
         </Pressable>
 
@@ -368,10 +365,11 @@ export default function ProductScreen({ route, navigation }) {
             pressed && { backgroundColor: '#f4f2ee' }
           ]}
         >
-          <Image
-            source={{ uri: favorite ? ICONS.heartFill : ICONS.heartOutline }}
-            style={styles.btnIconDark}
-            resizeMode="contain"
+          <Ionicons
+            name={favorite ? 'heart' : 'heart-outline'}
+            size={19}
+            color={favorite ? '#dc2626' : '#181818'}
+            style={{ marginRight: 8 }}
           />
           <Text style={styles.secondaryBtnText}>
             {favorite ? 'Đã yêu thích' : 'Thêm vào yêu thích'}
@@ -677,8 +675,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   checkCircleIcon: {
-    width: 14,
-    height: 14,
+    width: 15,
+    height: 15,
     marginRight: 6,
   },
   adminReplyTitle: {
@@ -750,11 +748,15 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.45,
   },
+  btnIconWhite: {
+    width: 18,
+    height: 18,
+    marginRight: 8,
+  },
   primaryBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
-    marginLeft: 8,
   },
   secondaryBtn: {
     height: 48,
@@ -766,19 +768,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  btnIconDark: {
+    width: 18,
+    height: 18,
+    marginRight: 8,
+  },
   secondaryBtnText: {
     color: '#181818',
     fontSize: 14,
     fontWeight: '700',
-    marginLeft: 8,
-  },
-  btnIconWhite: {
-    width: 18,
-    height: 18,
-    tintColor: '#ffffff',
-  },
-  btnIconDark: {
-    width: 18,
-    height: 18,
   },
 });
