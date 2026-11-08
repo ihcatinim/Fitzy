@@ -65,12 +65,12 @@ async function postJson(url, payload) {
   return data;
 }
 
-function getPaymentUrl(providerId, order, ipAddress) {
+function getPaymentUrl(providerId, order, ipAddress, baseUrl) {
   const config = providers[providerId]?.config();
   if (!config || !providers[providerId].enabled(config)) throw new Error(`${providers[providerId]?.label || 'Payment method'} is not configured`);
   if (providerId === 'momo') return createMomoPayment(order, config);
   if (providerId === 'zalopay') return createZaloPayPayment(order, config);
-  return createVnPayPayment(order, config, ipAddress);
+  return createVnPayPayment(order, config, ipAddress, baseUrl);
 }
 
 function getPaymentReference(providerId, order) {
@@ -107,19 +107,25 @@ async function createZaloPayPayment(order, config) {
   return { url: response.order_url, transactionId: appTransId };
 }
 
-function createVnPayPayment(order, config, ipAddress = '127.0.0.1') {
+function createVnPayPayment(order, config, ipAddress = '127.0.0.1', baseUrl) {
+  let paymentUrl = config.paymentUrl;
+  let returnUrl = config.returnUrl;
+  if (baseUrl) {
+    paymentUrl = paymentUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1):4000/, baseUrl);
+    returnUrl = returnUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1):4000/, baseUrl);
+  }
   const now = new Date();
   const amount = order.total * 100;
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid VNPay amount');
   const params = {
     vnp_Amount: String(amount), vnp_Command: 'pay', vnp_CreateDate: vnPayDate(now),
     vnp_CurrCode: 'VND', vnp_IpAddr: ipAddress.replace(/^::ffff:/, '').slice(0, 45), vnp_Locale: 'vn', vnp_OrderInfo: `Thanh toan don ${order.orderNumber}`,
-    vnp_OrderType: 'other', vnp_ReturnUrl: config.returnUrl, vnp_TmnCode: config.tmnCode, vnp_TxnRef: order.providerTransactionId || order.orderNumber, vnp_Version: '2.1.0',
+    vnp_OrderType: 'other', vnp_ReturnUrl: returnUrl, vnp_TmnCode: config.tmnCode, vnp_TxnRef: order.providerTransactionId || order.orderNumber, vnp_Version: '2.1.0',
     vnp_ExpireDate: vnPayDate(order.paymentExpiresAt || new Date(now.getTime() + 15 * 60 * 1000))
   };
   const signData = vnPaySignData(params);
   const signature = hmac('sha512', config.hashSecret, signData);
-  return { url: `${config.paymentUrl}?${signData}&vnp_SecureHash=${signature}`, transactionId: params.vnp_TxnRef };
+  return { url: `${paymentUrl}?${signData}&vnp_SecureHash=${signature}`, transactionId: params.vnp_TxnRef };
 }
 
 function vnPayDate(date) {
